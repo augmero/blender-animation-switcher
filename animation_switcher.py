@@ -4,7 +4,7 @@ bl_info = {
     "name": "augmero - animation switcher",
     "description": "switches actions and alembics",
     "author": "augmero",
-    "version": (0, 1),
+    "version": (0, 2),
     "blender": (3, 0, 0),
     "tracker_url": "https://twitter.com/augmero_nsfw",
     "support": "TESTING",
@@ -42,8 +42,23 @@ bl_info = {
 
 # Code assumes that the action name will be "{{object name}}"+"{{suffix}}"
 # This is the number of the animation to switch to.
-suffix = "_002"
+# 1 is suffix _001
+switchTo = 2
+suffix = "_" + str(switchTo).rjust(3, '0')
 cacheFilePath = "//zva caches/"
+
+class animation:
+    def __init__(self, suffix, camera, frameRange=[50,900], skip=False):
+        self.suffix = suffix
+        self.camera = camera
+        self.frameRange = frameRange
+        self.skip = skip
+
+
+animations = [
+    animation("_001","Camera 001",[60,1000]),
+    animation("_002","Camera 002",[50,900]),
+]
 
 # Include these collections to make changes, exclude when done
 # The animation_switcher collection has the action_switch and alembic_switch collections inside it
@@ -65,6 +80,15 @@ def exclude_collection_view_layer(pCollection, name, exclude):
             collection.exclude = exclude
         elif collection.children:
             exclude_collection_view_layer(collection, name, exclude)
+
+
+def exclude_collection_contains(pCollection, name, exclude):
+    for collection in pCollection.children:
+        if name.lower() in collection.name.lower():
+            print("COLLECTION | " + name + " | FOUND, setting exclude to " + str(exclude))
+            collection.exclude = exclude
+        elif collection.children:
+            exclude_collection_contains(collection, name, exclude)
 
 
 def retrieve_collection(pCollection, collectionName):
@@ -111,3 +135,22 @@ switch_alembics("alembic_switch", suffix)
 # Can now exclude the involved collections
 for collection in involved_collections:
     exclude_collection_view_layer(vl_collections, collection, True)
+
+
+# Show collections that have the suffix
+exclude_collection_contains(vl_collections, suffix, False)
+
+for anim in animations:
+    if anim.skip:
+        continue
+    
+    if anim.suffix == suffix:
+        bpy.data.scenes["Scene"].frame_start = anim.frameRange[0]
+        bpy.data.scenes["Scene"].frame_end = anim.frameRange[1]
+        
+        #switch camera
+        if anim.camera:
+            bpy.context.scene.camera = bpy.context.scene.objects[anim.camera]
+    # hide collections that have other suffix
+    elif anim.suffix != suffix:
+        exclude_collection_contains(vl_collections, anim.suffix, True)
